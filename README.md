@@ -1,99 +1,86 @@
 # dsh-capability-inventory
 
-A DSH plugin that lists the **currently available** Skills and MCP servers with their **purpose** and **usage**, in a panel that switches between **Chinese and English**.
+**DSH 技能与 MCP 总览** —— 一览当前可用的 Skills 与 MCP 服务器，并可直接管理，支持中英文切换与中文内容翻译。
 
-Read-only by design: one GET route on the host, plain-DOM panel in the browser, no React, no dependencies. It changes no skill or MCP loading semantics — it only surfaces what is already registered.
+[English](README.en.md) | 中文
 
-> 中文手册：[README.zh.md](README.zh.md)
+---
 
-## What it shows
+## 简介
 
-**Skills** — name, description (purpose), `whenToUse`, source (`user-agents` = `~/.agents/skills`, `user-dsh` = `~/.dsh/skills`, `project-*` …, or bundled/runtime from the registry), invocation policy, and how to use it. The web profile disables `dsh-skill-filesystem`, so skills are collected by scanning those roots directly (read-only, registry wins on name collision) — the same approach as `dsh-client-ui-skill-explorer`.
+一个 [DSH（DeepSeek Harness）](https://github.com/guoshuai007/dsh-capability-inventory) 插件。宿主端汇总技能与 MCP 数据并提供接口，浏览器端在 Web GUI 里渲染成一张总览面板：每个技能 / MCP 服务器的**用途、用法、范围、路径**一目了然，并可直接管理。
 
-**MCP servers** — server name, status (`connected` when its tools are registered, otherwise `configured (no tools yet)`), transport / command / URL from the profile config tree, and every bridged tool as `mcp__<server>__<tool>` with its description and parameter names.
+## 特性
 
-Only tools actually registered in the running process are counted — a server that never connected shows a single "configured" row instead of invented tools.
+- **总览**：技能来自官方注册表 + 文件系统扫描（`~/.agents/skills`、`~/.dsh/skills`、项目 `.dsh/skills` 等，同名以注册表为准）；MCP 服务器从 profile 配置树读出，展示 `已连接` / `已配置` 状态与完整工具清单（`mcp__<server>__<tool>`）。
+- **管理**
+  - 技能：编辑 `SKILL.md`、启用 / 停用、软删除（移到 `.trash-*` 回收站）。
+  - MCP：启用 / 停用某个服务器的工具可用状态（保留配置与工具定义本身）。
+- **中文内容翻译**：中文界面下用宿主 LLM 把英文描述译为中文，结果**持久化缓存**（默认 `$DSH_HOME/capability-inventory-translations.json`）——打开即显示、不重复翻译；每条可单独「重译」。
+- **国际化**：面板文案走 DSH 官方 `locale` 字典，默认跟随全局语言，也可在面板内单独切换。
+- **配置校验**：插件配置用 `@deepseek-ai/schemastery` 校验。运行时仅此一个依赖。
 
-## Install
+## 安装（推荐：npm）
 
 ```bash
-dsh plugin --profile web add link:<path-to>/dsh-capability-inventory
+dsh plugin --profile web add dsh-capability-inventory
 ```
 
-Then add the plugin row to `~/.dsh/profiles/web/cordis.patch.yml`:
+重启 `dsh web` 后，左侧边栏会出现 **能力总览**（英文界面下为 *Inventory*）。
 
-```yaml
-- insert:
-    - id: capability-inventory
-      name: dsh-capability-inventory
-```
+## 配置
 
-Restart `dsh web`. A **Inventory** entry appears under the "New session" button in the sidebar (labeled **能力总览** in Chinese). If the shell ever stops matching, a floating button appears bottom-left after 8 seconds as a fallback.
-
-## Use
-
-| Action | How |
-| --- | --- |
-| Open | Click the sidebar entry (data loads on open) |
-| Refresh | **Refresh** — re-collect after installing a skill or an MCP server |
-| Filter | Type in the search box (name / description / tool name) |
-| Language | **English / 中文** — switches **this panel only**, not the global UI |
-| Close | **Close**, click the backdrop, or press `Esc` |
-
-The panel opens in the DSH global language; after you toggle manually, the panel keeps your choice.
-
-## Config
+在 profile 的 `cordis.patch.yml` 插件行上写 `config`（全部可选，经 schemastery 校验）：
 
 ```yaml
 - insert:
     - id: capability-inventory
       name: dsh-capability-inventory
       config:
-        enabled: true      # false: route is not mounted
-        cwd: D:/AiAgent    # pin the collection workspace
-        dshHome: D:/other-dsh    # override the ~/.dsh skills root (advanced)
-        agentsHome: D:/other-agents  # override the ~/.agents skills root (advanced)
+        cwd: D:/AiAgent              # 固定采集工作区；留空则跟随活跃会话
+        patchPath: ""                # MCP 补丁层路径；默认 $DSH_HOME/profiles/<profile>/cordis.patch.yml
+        cachePath: ""                # 翻译缓存路径；默认 $DSH_HOME/capability-inventory-translations.json
+        translate:                   # 内容翻译所用 LLM；默认 sensenova/deepseek-v4-flash
+          provider: sensenova
+          model: deepseek-v4-flash
+        # enabled: false             # 关闭插件（不挂载路由）
+        # dshHome / agentsHome       # 覆盖用户技能根目录（高级）
 ```
 
-The route also accepts a one-off override: `GET /api/capability-inventory/overview?cwd=D%3A%2FAiAgent`.
+字段与默认值见 `lib/index.js` 导出的 `Config`。
 
-## Route
+## 使用
 
-`GET /api/capability-inventory/overview`
+打开 Web GUI，点左侧边栏 **能力总览**。
 
-```json
-{
-  "ok": true,
-  "generatedAt": "2026-09-07T06:00:00.000Z",
-  "cwd": "D:/AiAgent",
-  "skills": { "total": 2, "items": [{ "name": "alpha", "description": "…", "whenToUse": "…", "source": "user-dsh", "provider": "filesystem", "modelInvocable": true, "userInvocable": true }] },
-  "mcp": { "total": 2, "toolTotal": 3, "servers": [{ "name": "github", "status": "connected", "transport": "stdio", "command": "npx", "url": "", "tools": [{ "name": "create_issue", "fullName": "mcp__github__create_issue", "description": "Create an issue", "params": ["title", "body"] }] }] }
-}
-```
+| 操作 | 说明 |
+| --- | --- |
+| 搜索 | 顶部搜索框，按名称 / 描述 / 工具名过滤 |
+| 筛选 | 「全部来源」下拉，按技能来源过滤 |
+| 快捷定位 | 顶部【技能】【MCP】跳转到对应板块 |
+| 管理 | 每张卡片的 **编辑 / 启用·停用 / 删除** |
+| 重译 | 每张卡片的 **重译** 强制重翻该条内容 |
+| 语言 | 右上「English / 中文」只切面板；默认跟随全局语言 |
 
-Failures return `{ "ok": false, "error": "…" }`.
+接口：`GET /api/capability-inventory/overview`（只读汇总，仅限本机 loopback 访问）。
 
-## Security
+## 本地安装（开发用）
 
-- Loopback-only fence: both the socket address and the `Host` header must be local, otherwise `403 forbidden: loopback-only`. `X-Forwarded-For` is never trusted.
-- No write routes — the plugin exposes exactly one GET.
-- All rendering goes through `textContent`; skill descriptions are treated as plain text.
-
-## Checks
+从本地目录链接安装：
 
 ```bash
-node test/check.mjs                 # host self-check, zero dependencies
-NODE_PATH=<node_modules-with-jsdom> node test/panel.smoke.mjs   # optional panel smoke test
+dsh plugin --profile web add link:/path/to/dsh-capability-inventory
 ```
 
-## Layout
+或手动软链 / junction 到 `~/.dsh/profiles/web/node_modules/dsh-capability-inventory`，然后在 `cordis.patch.yml` 加插件行。
 
+## 开发与测试
+
+```bash
+node test/check.mjs                          # 宿主端自检（零依赖）
+npm install && node test/panel.smoke.mjs     # 面板冒烟测试（需 jsdom）
 ```
-lib/index.js   host: collect skills + MCP, one read-only route
-lib/client.js  browser: sidebar entry, modal panel, zh/en dictionaries
-test/          self-check + panel smoke test
-```
 
-## Uninstall
+## 许可证
 
-Remove the row from `cordis.patch.yml`, run `dsh plugin --profile web remove dsh-capability-inventory`, restart `dsh web`.
+[MIT](LICENSE)
