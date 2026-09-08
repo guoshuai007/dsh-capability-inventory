@@ -1,0 +1,5 @@
+# dsh-capability-inventory 插件行：宿主端与浏览器端共用同一行，
+# 浏览器半包由 package.json 的 dsh.client 声明经 exports["./client"] 发现。
+- insert:
+    - id: capability-inventory
+      name: dsh-capability-inventory

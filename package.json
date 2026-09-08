@@ -1,0 +1,59 @@
+{
+  "name": "dsh-capability-inventory",
+  "version": "0.1.0",
+  "description": "DSH 技能与 MCP 总览：列出当前可用的 Skills 与 MCP 服务器，展示各自用途、用法、范围与路径，支持中英文切换、技能/MCP 管理与中文态内容翻译。",
+  "keywords": [
+    "deepseek",
+    "harness",
+    "dsh",
+    "dsh-plugin",
+    "skills",
+    "mcp",
+    "inventory",
+    "overview"
+  ],
+  "author": "guoshuai007",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guoshuai007/dsh-capability-inventory.git"
+  },
+  "homepage": "https://github.com/guoshuai007/dsh-capability-inventory#readme",
+  "bugs": {
+    "url": "https://github.com/guoshuai007/dsh-capability-inventory/issues"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.1.2-rc.1"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "locale"
+      ],
+      "platform": "web"
+    }
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "LICENSE",
+    "README.md",
+    "README.zh.md"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.2"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1"
+  }
+}
